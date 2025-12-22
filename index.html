@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>혜화 학교 분실물 센터</title>
+    <title>우리 학교 분실물 센터 (실시간 통합)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&display=swap');
@@ -11,7 +11,9 @@
         .card { transition: all 0.2s ease-in-out; }
         .card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
         .tab-active { border-bottom: 3px solid #2563eb; color: #2563eb; font-weight: bold; }
-        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .img-placeholder { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); }
     </style>
 </head>
 <body class="min-h-screen pb-20">
@@ -23,24 +25,27 @@
                 <h1 class="text-2xl font-bold flex items-center gap-2">
                     <span>🏫</span> 우리 학교 분실물 센터
                 </h1>
-                <p class="text-blue-100 text-sm">교무실에 맡겨진 분실물을 확인하세요.</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <div id="statusBadge" class="flex items-center gap-1.5 bg-blue-700/50 px-2 py-0.5 rounded-full border border-blue-400/30">
+                        <span id="statusDot" class="w-2 h-2 rounded-full bg-gray-400"></span>
+                        <span id="statusText" class="text-[10px] font-bold opacity-90 uppercase tracking-wider text-blue-100 font-mono text-center">Checking Server...</span>
+                    </div>
+                </div>
             </div>
-            <button onclick="openAdminAction('register')" class="bg-white text-blue-600 hover:bg-blue-50 px-5 py-2.5 rounded-xl font-extrabold transition shadow-md">
+            <button onclick="openAdminAction('register')" class="bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-extrabold transition shadow-md text-sm sm:text-base">
                 + 새 분실물 등록
             </button>
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="max-w-5xl mx-auto p-4 mt-4">
-        
         <!-- Search & Filter -->
-        <div class="bg-white p-5 rounded-2xl shadow-sm mb-8 flex flex-wrap gap-4 items-center border border-gray-100">
+        <div class="bg-white p-5 rounded-2xl shadow-sm mb-8 flex flex-wrap gap-4 border border-gray-100">
             <div class="flex-1 relative">
                 <span class="absolute left-3 top-3 text-gray-400">🔍</span>
-                <input type="text" id="searchInput" oninput="renderItems()" placeholder="물건 이름 또는 장소로 검색..." class="w-full border border-gray-200 pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition">
+                <input type="text" id="searchInput" oninput="renderItems()" placeholder="물건 이름 또는 장소로 검색..." class="w-full border border-gray-200 pl-10 pr-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 transition">
             </div>
-            <select id="filterCategory" onchange="renderItems()" class="border border-gray-200 px-4 py-3 rounded-xl outline-none bg-gray-50 font-medium cursor-pointer">
+            <select id="filterCategory" onchange="renderItems()" class="border border-gray-200 px-4 py-3 rounded-xl outline-none bg-gray-50 font-medium">
                 <option value="전체">모든 카테고리</option>
                 <option value="학용품">학용품</option>
                 <option value="의류">의류</option>
@@ -50,31 +55,39 @@
             </select>
         </div>
 
-        <!-- Stats -->
         <div id="stats" class="mb-6 px-2 flex justify-between items-end">
-            <span class="text-lg font-bold text-gray-700">분실물 목록</span>
-            <span id="itemCount" class="text-sm text-gray-500 font-medium">검색 결과: 0건</span>
+            <span class="text-lg font-bold text-gray-700">분실물 현황</span>
+            <span id="itemCount" class="text-sm text-gray-500 font-medium italic text-slate-400">서버 확인 중...</span>
         </div>
 
-        <!-- Items Grid -->
-        <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Items will be rendered here -->
-        </div>
+        <div id="itemsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
-        <!-- Empty State -->
         <div id="emptyState" class="hidden flex flex-col items-center justify-center py-24 text-gray-400">
             <div class="text-6xl mb-4">📦</div>
-            <p class="text-xl">등록된 분실물이 없습니다.</p>
+            <p class="text-xl font-bold">등록된 분실물이 없습니다.</p>
         </div>
     </main>
 
-    <!-- Admin Password Check Modal -->
+    <!-- 삭제 확인 모달 -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-[100]">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl">
+            <div class="text-4xl mb-4 text-red-500">⚠️</div>
+            <h3 class="text-lg font-extrabold text-gray-800 mb-2">분실물 삭제</h3>
+            <p class="text-sm text-gray-500 mb-6 leading-relaxed">이 기록을 영구적으로 삭제하시겠습니까?<br><span class="text-red-400 text-xs font-bold underline italic text-center">서버에서 즉시 삭제됩니다.</span></p>
+            <div class="flex gap-2">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition">취소</button>
+                <button id="confirmDeleteBtn" onclick="confirmDelete()" class="flex-1 py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition shadow-lg">삭제하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 관리자 인증 모달 -->
     <div id="passwordModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-[60]">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl text-center">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-8 text-center shadow-2xl">
             <div class="text-4xl mb-4">🔒</div>
             <h2 class="text-xl font-bold text-gray-800 mb-2">관리자 확인</h2>
-            <p class="text-gray-500 text-sm mb-6">보안을 위해 비밀번호를 입력하세요.</p>
-            <input type="password" id="adminPasswordInput" class="w-full border-2 border-gray-100 p-4 rounded-2xl text-center text-2xl tracking-widest focus:border-blue-400 outline-none mb-4" placeholder="****">
+            <p class="text-gray-500 text-sm mb-6">등록/수정/삭제 비밀번호를 입력하세요.</p>
+            <input type="password" id="adminPasswordInput" class="w-full border-2 border-gray-100 p-4 rounded-2xl text-center text-2xl mb-4 outline-none focus:border-blue-400 tracking-widest" placeholder="****">
             <div class="flex gap-2">
                 <button onclick="closePasswordModal()" class="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition">취소</button>
                 <button onclick="checkPassword()" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition">확인</button>
@@ -82,288 +95,303 @@
         </div>
     </div>
 
-    <!-- Admin Registration Modal -->
+    <!-- 등록 모달 -->
     <div id="adminModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50 overflow-y-auto">
         <div class="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl my-auto">
-            <div class="bg-blue-600 p-6 text-white flex justify-between items-center">
+            <div class="bg-blue-600 p-6 text-white flex justify-between items-center text-center">
                 <h2 class="text-xl font-bold">새 분실물 등록</h2>
-                <button onclick="toggleModal('adminModal')" class="text-2xl leading-none opacity-80 hover:opacity-100 transition">&times;</button>
+                <button onclick="toggleModal('adminModal')" class="text-2xl leading-none">&times;</button>
             </div>
-            
-            <div class="flex border-b">
-                <button onclick="switchTab('photo')" id="tabPhoto" class="flex-1 py-4 text-center tab-active transition">사진으로 등록</button>
-                <button onclick="switchTab('text')" id="tabText" class="flex-1 py-4 text-center text-gray-500 transition">제목만 등록</button>
-            </div>
-
-            <form id="itemForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-5">
-                <!-- Image Upload Section -->
-                <div id="imageSection" class="space-y-2">
-                    <label class="block text-sm font-bold text-gray-700">사진 첨부</label>
-                    <div id="imagePreviewContainer" class="hidden relative h-48 w-full rounded-xl overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300">
-                        <img id="imagePreview" src="" class="h-full w-full object-cover">
-                        <button type="button" onclick="clearImage()" class="absolute top-2 right-2 bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-black/70 transition">×</button>
+            <form id="itemForm" class="p-6 space-y-5">
+                <div id="imageSection" class="space-y-2 text-center">
+                    <label class="block text-sm font-bold text-gray-700">분실물 사진</label>
+                    <div id="imagePreviewContainer" class="hidden relative h-48 rounded-xl overflow-hidden border">
+                        <img id="imagePreview" src="" class="w-full h-full object-cover">
+                        <button type="button" onclick="clearImage()" class="absolute top-2 right-2 bg-black/50 text-white rounded-full w-8 h-8 flex items-center justify-center">×</button>
                     </div>
-                    <label id="uploadLabel" class="flex flex-col items-center justify-center h-48 w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-100 transition text-center px-4">
+                    <label id="uploadLabel" class="flex flex-col items-center justify-center h-48 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 cursor-pointer hover:bg-gray-100 transition p-4">
                         <span class="text-4xl mb-2">📸</span>
-                        <span class="text-sm text-gray-500 font-bold">분실물 사진을 선택하거나 직접 촬영하세요</span>
+                        <span class="text-xs text-gray-400 font-bold leading-relaxed">사진 촬영 또는 첨부</span>
                         <input type="file" id="itemPhoto" accept="image/*" onchange="previewFile()" class="hidden">
                     </label>
                 </div>
-
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">물건 이름</label>
-                        <input type="text" id="itemName" required class="w-full border border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-blue-400 outline-none" placeholder="예: 파란색 나이키 필통">
-                    </div>
-                    
+                    <input type="text" id="itemName" required placeholder="물건 이름" class="w-full border p-3.5 rounded-xl outline-none focus:ring-2 focus:ring-blue-400">
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">습득 날짜</label>
-                            <input type="date" id="itemDate" required class="w-full border border-gray-200 p-3 rounded-xl outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">카테고리</label>
-                            <select id="itemCategory" class="w-full border border-gray-200 p-3 rounded-xl outline-none">
-                                <option value="학용품">학용품</option>
-                                <option value="의류">의류</option>
-                                <option value="전자기기">전자기기</option>
-                                <option value="가방/지갑">가방/지갑</option>
-                                <option value="기타">기타</option>
-                            </select>
-                        </div>
+                        <input type="date" id="itemDate" required class="border p-3.5 rounded-xl outline-none focus:ring-2 focus:ring-blue-400">
+                        <select id="itemCategory" class="border p-3.5 rounded-xl outline-none bg-white font-bold">
+                            <option value="학용품">학용품</option>
+                            <option value="의류">의류</option>
+                            <option value="전자기기">전자기기</option>
+                            <option value="가방/지갑">가방/지갑</option>
+                            <option value="기타">기타</option>
+                        </select>
                     </div>
-
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">습득 장소</label>
-                        <input type="text" id="itemLocation" required class="w-full border border-gray-200 p-3 rounded-xl outline-none" placeholder="예: 2층 동편 복도">
-                    </div>
+                    <input type="text" id="itemLocation" required placeholder="습득 장소 (예: 본관 1F 교무실)" class="w-full border p-3.5 rounded-xl outline-none">
                 </div>
-
-                <button type="submit" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition">
-                    분실물 등록 완료
-                </button>
+                <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition shadow-lg text-lg">등록 완료</button>
             </form>
         </div>
     </div>
 
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-900/90 text-white px-8 py-3.5 rounded-2xl opacity-0 transition-opacity duration-300 pointer-events-none z-[100] flex items-center gap-2">
-        <span id="toastIcon">✅</span> <span id="toastMsg">처리되었습니다!</span>
-    </div>
+    <!-- Toast 알림 -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-900/95 text-white px-8 py-3.5 rounded-2xl opacity-0 transition-opacity duration-300 z-[110] pointer-events-none text-xs font-bold text-center shadow-2xl"></div>
 
-    <script>
-        const ADMIN_PASSWORD = "1234"; // 기본 관리자 비밀번호
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getDatabase, ref, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
-        let currentTab = 'photo';
+        // 선생님의 설정값 (apiKey 오타 수정완료)
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7FoLM-eMgPAM2A0tEEe_uludULH79FlU",
+            authDomain: "myschoollostfound.firebaseapp.com",
+            databaseURL: "https://myschoollostfound-default-rtdb.firebaseio.com",
+            projectId: "myschoollostfound",
+            storageBucket: "myschoollostfound.firebasestorage.app",
+            messagingSenderId: "479416427092",
+            appId: "1:479416427092:web:d579895de6284e1a41c3c1"
+        };
+
+        // 앱 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const ADMIN_PASSWORD = "1234";
+        let lostItems = [];
+        let pendingAction = null;
+        let deleteTargetId = null;
         let currentImageBase64 = null;
-        let pendingAction = null; 
-        
-        // Initial Data
-        let lostItems = [
-            { id: 1, name: "노란색 캐릭터 필통", date: "2023-10-25", location: "급식실 앞", category: "학용품", status: "보관중", image: null },
-            { id: 2, name: "검은색 아디다스 가방", date: "2023-10-24", location: "운동장 스탠드", category: "가방/지갑", status: "수령완료", image: null }
-        ];
 
-        // Admin Action Access Control
-        function openAdminAction(type, id = null) {
-            pendingAction = { type, id };
-            document.getElementById('passwordModal').classList.remove('hidden');
-            document.getElementById('adminPasswordInput').focus();
+        // 상태 표시 업데이트
+        function updateServerStatus(color, text) {
+            const dot = document.getElementById('statusDot');
+            const badgeText = document.getElementById('statusText');
+            dot.className = `w-2 h-2 rounded-full bg-${color}-400`;
+            badgeText.textContent = text;
+            badgeText.className = `text-[10px] font-bold text-${color}-100 uppercase tracking-wider font-mono`;
         }
 
-        function closePasswordModal() {
-            document.getElementById('passwordModal').classList.add('hidden');
-            document.getElementById('adminPasswordInput').value = "";
-            pendingAction = null;
+        // 실시간 동기화 시작
+        function subscribeToData() {
+            const itemsRef = ref(db, 'lostItems');
+            onValue(itemsRef, (snapshot) => {
+                const data = snapshot.val();
+                lostItems = [];
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        lostItems.push({ id: key, ...data[key] });
+                    });
+                }
+                updateServerStatus('emerald', 'SERVER CONNECTED');
+                renderItems();
+            }, (error) => {
+                console.error("Firebase Error:", error);
+                if (error.code === 'PERMISSION_DENIED') {
+                    updateServerStatus('red', 'PERM DENIED');
+                    showToast("권한 오류: Realtime Database 규칙 '게시' 여부를 꼭 확인하세요.", "❌");
+                } else {
+                    updateServerStatus('red', error.code);
+                }
+            });
         }
+        subscribeToData();
 
-        function checkPassword() {
-            const input = document.getElementById('adminPasswordInput').value;
-            if (input === ADMIN_PASSWORD) {
+        // 관리자 인증
+        window.checkPassword = () => {
+            const pwd = document.getElementById('adminPasswordInput').value;
+            if (pwd === ADMIN_PASSWORD) {
                 const action = pendingAction;
-                closePasswordModal();
-                
-                if (action.type === 'register') toggleModal('adminModal');
+                window.closePasswordModal();
+                if (action.type === 'register') window.toggleModal('adminModal');
                 else if (action.type === 'toggleStatus') executeToggleStatus(action.id);
-                else if (action.type === 'delete') executeDeleteItem(action.id);
+                else if (action.type === 'delete') {
+                    deleteTargetId = action.id;
+                    document.getElementById('deleteConfirmModal').classList.remove('hidden');
+                }
             } else {
                 showToast("비밀번호가 일치하지 않습니다.", "❌");
                 document.getElementById('adminPasswordInput').value = "";
-                document.getElementById('adminPasswordInput').focus();
             }
-        }
+        };
 
-        // Logic Functions
-        function executeToggleStatus(id) {
+        // 상태 토글 로직
+        async function executeToggleStatus(id) {
             const item = lostItems.find(i => i.id === id);
-            if (item) {
-                const nextStatus = item.status === "보관중" ? "수령완료" : "보관중";
-                item.status = nextStatus;
-                renderItems();
-                showToast(`[${item.name}] 상태가 '${nextStatus}'로 변경되었습니다.`, '💡');
+            if (!item) return;
+            const nextStatus = item.status === "보관중" ? "수령완료" : "보관중";
+            try {
+                await update(ref(db, `lostItems/${id}`), { status: nextStatus });
+                showToast("상태가 변경되었습니다.");
+            } catch (e) {
+                showToast(`변경 실패: [${e.code}]`, "❌");
             }
         }
 
-        function executeDeleteItem(id) {
-            if (confirm("정말로 이 분실물 기록을 삭제하시겠습니까?")) {
-                lostItems = lostItems.filter(i => i.id !== id);
-                renderItems();
-                showToast("기록이 삭제되었습니다.", '🗑️');
+        // ⚡️ 삭제 실행 (중요: remove 함수를 직접 호출)
+        window.confirmDelete = async () => {
+            if (!deleteTargetId) return;
+            const btn = document.getElementById('confirmDeleteBtn');
+            btn.disabled = true;
+            btn.textContent = "삭제 중...";
+            
+            try {
+                // Realtime Database의 특정 노드를 삭제합니다.
+                const itemRef = ref(db, `lostItems/${deleteTargetId}`);
+                await remove(itemRef);
+                
+                showToast("기록이 성공적으로 삭제되었습니다.", "🗑️");
+                window.closeDeleteModal();
+            } catch (e) {
+                console.error("Delete Fail:", e);
+                showToast(`삭제 실패: [${e.code}] 규칙 게시 여부를 확인하세요.`, "❌");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "삭제하기";
+                deleteTargetId = null;
             }
-        }
+        };
 
-        function handleFormSubmit(e) {
+        window.closeDeleteModal = () => {
+            document.getElementById('deleteConfirmModal').classList.add('hidden');
+            deleteTargetId = null;
+        };
+
+        // UI 유틸리티
+        window.openAdminAction = (type, id = null) => {
+            pendingAction = { type, id };
+            document.getElementById('passwordModal').classList.remove('hidden');
+            document.getElementById('adminPasswordInput').focus();
+        };
+
+        window.closePasswordModal = () => {
+            document.getElementById('passwordModal').classList.add('hidden');
+            document.getElementById('adminPasswordInput').value = "";
+            pendingAction = null;
+        };
+
+        window.toggleModal = (id) => document.getElementById(id).classList.toggle('hidden');
+
+        // 등록 폼 처리
+        document.getElementById('itemForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const newItem = {
-                id: Date.now(),
-                name: document.getElementById('itemName').value,
-                date: document.getElementById('itemDate').value,
-                location: document.getElementById('itemLocation').value,
-                category: document.getElementById('itemCategory').value,
-                status: "보관중",
-                image: currentTab === 'photo' ? currentImageBase64 : null
-            };
-            lostItems.unshift(newItem);
-            renderItems();
-            toggleModal('adminModal');
-            document.getElementById('itemForm').reset();
-            clearImage();
-            showToast("성공적으로 등록되었습니다.");
-        }
+            const btn = document.getElementById('submitBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = "등록 중...";
 
-        // UI Utility Functions
-        function toggleModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.toggle('hidden');
-            if (!modal.classList.contains('hidden')) {
-                document.getElementById('itemDate').valueAsDate = new Date();
-                switchTab('photo');
+            try {
+                await push(ref(db, 'lostItems'), {
+                    name: document.getElementById('itemName').value,
+                    date: document.getElementById('itemDate').value,
+                    location: document.getElementById('itemLocation').value,
+                    category: document.getElementById('itemCategory').value,
+                    status: "보관중",
+                    image: currentImageBase64,
+                    createdAt: Date.now()
+                });
+                window.toggleModal('adminModal');
+                document.getElementById('itemForm').reset();
+                window.clearImage();
+                showToast("분실물이 등록되었습니다! ✅");
+            } catch (err) {
+                showToast(`등록 실패: [${err.code}]`, "❌");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
             }
-        }
+        });
 
-        function switchTab(type) {
-            currentTab = type;
-            const tabPhoto = document.getElementById('tabPhoto');
-            const tabText = document.getElementById('tabText');
-            const imageSection = document.getElementById('imageSection');
-            if (type === 'photo') {
-                tabPhoto.classList.add('tab-active');
-                tabText.classList.remove('tab-active');
-                tabText.classList.add('text-gray-500');
-                imageSection.classList.remove('hidden');
-            } else {
-                tabText.classList.add('tab-active');
-                tabPhoto.classList.remove('tab-active');
-                tabPhoto.classList.add('text-gray-500');
-                imageSection.classList.add('hidden');
-                clearImage();
-            }
-        }
-
-        function previewFile() {
+        // 이미지 미리보기
+        window.previewFile = () => {
             const file = document.getElementById('itemPhoto').files[0];
+            if (!file) return;
             const reader = new FileReader();
-            reader.onloadend = () => {
-                currentImageBase64 = reader.result;
-                document.getElementById('imagePreview').src = reader.result;
-                document.getElementById('imagePreviewContainer').classList.remove('hidden');
-                document.getElementById('uploadLabel').classList.add('hidden');
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const MAX_DIM = 400; 
+                    if (w > MAX_DIM) { h *= MAX_DIM / w; w = MAX_DIM; }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    currentImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                    document.getElementById('imagePreview').src = currentImageBase64;
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                    document.getElementById('uploadLabel').classList.add('hidden');
+                };
+                img.src = e.target.result;
             };
-            if (file) reader.readAsDataURL(file);
-        }
+            reader.readAsDataURL(file);
+        };
 
-        function clearImage() {
+        window.clearImage = () => {
             currentImageBase64 = null;
-            document.getElementById('itemPhoto').value = "";
             document.getElementById('imagePreviewContainer').classList.add('hidden');
             document.getElementById('uploadLabel').classList.remove('hidden');
-        }
+        };
 
-        function renderItems() {
+        // 화면 렌더링
+        window.renderItems = () => {
             const grid = document.getElementById('itemsGrid');
-            const empty = document.getElementById('emptyState');
             const search = document.getElementById('searchInput').value.toLowerCase();
             const category = document.getElementById('filterCategory').value;
             
-            const filtered = lostItems.filter(item => {
-                const matchesSearch = item.name.toLowerCase().includes(search) || item.location.toLowerCase().includes(search);
-                const matchesCategory = category === "전체" || item.category === category;
-                return matchesSearch && matchesCategory;
-            });
+            const filtered = lostItems.filter(item => 
+                ((item.name || '').toLowerCase().includes(search) || (item.location || '').toLowerCase().includes(search)) &&
+                (category === "전체" || item.category === category)
+            );
 
-            filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-            document.getElementById('itemCount').textContent = `검색 결과: ${filtered.length}건`;
+            filtered.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            document.getElementById('itemCount').textContent = `조회 결과: ${filtered.length}건`;
 
             if (filtered.length === 0) {
                 grid.innerHTML = "";
-                empty.classList.remove('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
             } else {
-                empty.classList.add('hidden');
+                document.getElementById('emptyState').classList.add('hidden');
                 grid.innerHTML = filtered.map(item => `
-                    <div class="card bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
-                        <div class="relative h-48 bg-gray-50">
-                            ${item.image 
-                                ? `<img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover">`
-                                : `<div class="w-full h-full flex flex-col items-center justify-center text-gray-300">
-                                     <span class="text-4xl mb-1">🔍</span>
-                                     <span class="text-xs font-bold italic">이미지 없음</span>
-                                   </div>`
-                            }
-                            <div class="absolute top-4 left-4">
-                                <span class="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-tight uppercase shadow-sm ${
-                                    item.category === '학용품' ? 'bg-yellow-400 text-yellow-900' :
-                                    item.category === '의류' ? 'bg-green-400 text-green-900' :
-                                    item.category === '전자기기' ? 'bg-indigo-400 text-white' : 
-                                    item.category === '가방/지갑' ? 'bg-orange-400 text-white' : 'bg-gray-400 text-white'
-                                }">
-                                    ${item.category}
-                                </span>
+                    <div class="card bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full relative">
+                        <div class="h-48 img-placeholder relative overflow-hidden">
+                            ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-slate-300 italic text-xs">사진 없음</div>`}
+                            <div class="absolute top-3 left-3">
+                                <span class="px-2 py-1 rounded-lg text-[10px] font-black uppercase shadow-sm ${
+                                    item.category === '학용품' ? 'bg-amber-400 text-amber-900' :
+                                    item.category === '의류' ? 'bg-emerald-400 text-emerald-900' :
+                                    item.category === '전자기기' ? 'bg-blue-400 text-white' : 
+                                    item.category === '가방/지갑' ? 'bg-rose-400 text-white' : 'bg-slate-400 text-white'
+                                }">${item.category}</span>
                             </div>
-                            ${item.status === '수령완료' ? `
-                                <div class="absolute inset-0 bg-black/50 backdrop-blur-[1px] flex items-center justify-center">
-                                    <div class="border-4 border-white text-white font-black px-4 py-2 text-xl rotate-[-10deg] rounded-xl">찾아감 완료</div>
-                                </div>
-                            ` : ''}
+                            ${item.status === '수령완료' ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-black text-2xl rotate-[-10deg] rounded-xl border-4 border-white m-4 text-center">찾아감 완료</div>` : ''}
                         </div>
-                        
                         <div class="p-6 flex-1 flex flex-col">
-                            <h3 class="text-lg font-extrabold text-gray-800 mb-2 leading-tight">${item.name}</h3>
-                            <div class="space-y-1.5 mb-6 text-sm text-gray-500">
-                                <div class="flex items-center"><span class="w-6">📅</span> <span>${item.date} 습득</span></div>
-                                <div class="flex items-center"><span class="w-6">📍</span> <span>${item.location}</span></div>
+                            <h3 class="font-bold text-gray-800 text-lg mb-2 leading-tight">${item.name}</h3>
+                            <div class="text-xs text-gray-500 mb-6 space-y-1 text-slate-400">
+                                <p>📅 습득: <span class="text-slate-600 font-medium">${item.date}</span></p>
+                                <p>📍 장소: <span class="text-slate-600 font-medium">${item.location}</span></p>
                             </div>
-                            
                             <div class="mt-auto flex gap-2">
-                                <button onclick="openAdminAction('toggleStatus', ${item.id})" class="flex-1 py-3 text-xs font-bold rounded-xl transition shadow-sm ${
-                                    item.status === '보관중' 
-                                    ? 'bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white' 
-                                    : 'bg-gray-100 text-gray-500 border border-gray-100 hover:bg-gray-200'
-                                }">
-                                    ${item.status === '보관중' ? '찾아감 완료 처리' : '보관중으로 되돌리기'}
+                                <button onclick="openAdminAction('toggleStatus', '${item.id}')" class="flex-1 py-3 text-[11px] font-extrabold rounded-xl transition ${item.status === '보관중' ? 'bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-600 hover:text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">
+                                    ${item.status === '보관중' ? '수령 완료 처리' : '보관중으로 복구'}
                                 </button>
-                                <button onclick="openAdminAction('delete', ${item.id})" class="bg-red-50 text-red-400 px-3 rounded-xl border border-red-50 hover:bg-red-500 hover:text-white transition">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
+                                <button onclick="openAdminAction('delete', '${item.id}')" class="px-4 py-3 bg-rose-50 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition group shadow-sm border border-rose-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                 </button>
                             </div>
                         </div>
                     </div>
                 `).join('');
             }
-        }
+        };
 
-        function showToast(msg, icon = '✅') {
+        function showToast(msg, icon = "✅") {
             const toast = document.getElementById('toast');
-            document.getElementById('toastMsg').textContent = msg;
-            document.getElementById('toastIcon').textContent = icon;
-            toast.classList.remove('opacity-0');
-            setTimeout(() => toast.classList.add('opacity-0'), 3000);
+            toast.innerHTML = `<span>${icon}</span> <span>${msg}</span>`;
+            toast.classList.add('opacity-100');
+            setTimeout(() => toast.classList.remove('opacity-100'), 5000);
         }
 
-        window.onload = renderItems;
         document.getElementById('adminPasswordInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') checkPassword(); });
     </script>
 </body>
 </html>
-
